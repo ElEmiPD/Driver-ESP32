@@ -1,3 +1,16 @@
+// FileName:        timer_2026.c                                                                                     
+// Dependencies:    "timer_2026.h"                                                                                   
+// Processor:       ESP32                                                                                            
+// Board:           ESP-WROOM-32                                                                                     
+// Program version: 1.0                                                                                              
+// Company:         Instituto Tecnologico de Chihuahua                                                               
+// Description:     Implementación de la lógica de bajo nivel para la        
+//                  inicialización, lectura dividida de 64 bits y generación 
+//                  de retardos con el Timer Group 0 (TIMG0).                
+// Autor:           Ana Paola Cardona Valenzuela
+//                  Luis Adrian Anchondo Carreón
+//                  Emiliano Perez Dyck 
+// Updated:         31/05/2026
 #include "timer_2026.h"
 
 
