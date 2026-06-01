@@ -1,3 +1,16 @@
+// FileName:        timer_2026.h                                                                                     
+// Dependencies:    None                                                                         
+// Processor:       ESP32                                                                                            
+// Board:           ESP-WROOM-32                                                                                     
+// Program version: 1.0                                                                                              
+// Company:         Instituto Tecnologico de Chihuahua                                                               
+// Description:     Declaración de macros, direcciones de memoria física y   
+//                  prototipos de funciones a nivel hardware para el manejo  
+//                  del Timer Group 0 (TIMG0) del ESP32.                     
+// Autor:           Ana Paola Cardona Valenzuela
+//                  Luis Adrian Anchondo Carreón
+//                  Emiliano Perez Dyck 
+// Updated:         31/05/2026
 #ifndef TIMER_2026_H
 #define TIMER_2026_H
 
