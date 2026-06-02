@@ -23,6 +23,32 @@
 // Macro registers access
 #define HWREG32(x) (*((volatile unsigned int *)(x)))
 
+// Prototipos de macrofunciones
+// Macro para gpio_2026
+
+//Entradas
+#define GPIO_INPUT(pin) \
+    gpio_init2026(pin, false, GPIO_ACTIVE_HIGH, GPIO_DEFAULT, INT_DESHABILITADA)
+
+#define GPIO_INPUT_PU(pin) \
+    gpio_init2026(pin, false, GPIO_ACTIVE_LOW, GPIO_PULLUP, INT_DESHABILITADA)
+
+#define GPIO_INPUT_PD(pin) \
+    gpio_init2026(pin, false, GPIO_ACTIVE_HIGH, GPIO_PULLDOWN, INT_DESHABILITADA)
+
+//Salidas
+#define GPIO_OUTPUT_P(pin) \
+    gpio_init2026(pin, true, GPIO_ACTIVE_HIGH, GPIO_PULLUP, INT_DESHABILITADA)
+#define GPIO_OUTPUT_N(pin) \
+    gpio_init2026(pin, true, GPIO_ACTIVE_LOW, GPIO_PULLDOWN, INT_DESHABILITADA)
+
+// Lectura y escritura de pines GPIO
+#define READ_PIN(pin) \
+    gpio_read(&gpio_table[pin])
+
+#define WRITE_PIN(pin, value) \
+    gpio_write(&gpio_table[pin], value)
+
 // GPIO REGISTERS
 
 // GPIO ENABLE
@@ -111,6 +137,7 @@ extern gpio_pin_t gpio_table[];
           para la lógica activa del pin
 * @param  pull_mode_t pull_mode: GPIO_FLOATING, GPIO_PULLUP o GPIO_PULLDOWN 
           para la resistencia de pu o pd
+* @param  gpio_int_type_t int_type: Tipo de interrupción para el pin
 
 * @return gpio_pin_t *gpio: Puntero a la estructura gpio_pin_t que contiene la configuración del pin GPIO
 */
