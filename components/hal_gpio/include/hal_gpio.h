@@ -15,6 +15,7 @@
 #define HAL_GPIO_H
 
 #include "gpio_2026.h"
+#include "hal_timer.h"
 
 // Estructuras para abstraer LEDs y botones
 typedef struct
@@ -31,10 +32,12 @@ typedef struct
 
 //Salidas
 //Leds
-void hal_led_init(hal_led_t *led, uint8_t gpio_pin);
+void hal_led_init_p(hal_led_t *led, uint8_t gpio_pin);
+void hal_led_init_n(hal_led_t *led, uint8_t gpio_pin);
 void hal_led_on(hal_led_t *led);
 void hal_led_off(hal_led_t *led);
 void hal_led_toggle(hal_led_t *led);
+void hal_led_blink(hal_led_t *led, uint32_t ms);
 
 //Relay
 /*

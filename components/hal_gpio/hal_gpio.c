@@ -13,24 +13,37 @@
 
 #include "hal_gpio.h"
 
-void hal_led_init(hal_led_t *led, uint8_t gpio_pin)
+void hal_led_init_p(hal_led_t *led, uint8_t gpio_pin)
 {
+    GPIO_OUTPUT_P(gpio_pin);
+}
 
+void hal_led_init_n(hal_led_t *led, uint8_t gpio_pin)
+{
+    GPIO_OUTPUT_N(gpio_pin);
 }
 
 void hal_led_on(hal_led_t *led)
 {
-    // Implementation for turning LED on
+    gpio_write(led->pin, true);
 }
 
 void hal_led_off(hal_led_t *led)
 {
-    // Implementation for turning LED off
+    gpio_write(led->pin, false);
 }
 
 void hal_led_toggle(hal_led_t *led)
 {
-    // Implementation for toggling LED
+    bool current_state = gpio_read(led->pin);
+    gpio_write(led->pin, !current_state);
+}
+
+void hal_led_blink(hal_led_t *led, uint32_t ms)
+{
+    hal_led_toggle(led);
+    hal_timer_delay_ms(ms);
+    hal_led_toggle(led);
 }
 
 void hal_button_init(hal_button_t *button, uint8_t gpio_pin)
