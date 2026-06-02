@@ -2,11 +2,17 @@
 // Dependencies:    "timer_2026.h"                                                                                   
 // Processor:       Tensilica Xtensa LX6 160 MHz                                                                                           
 // Board:           ESP-WROOM-32                                                                                     
-// Program version: 1.0                                                                                              
+// Program version: 2.0                                                                                              
 // Company:         Instituto Tecnologico de Chihuahua                                                               
-// Description:     Abstracción sobre timer_2026. No acceder
-//                  a registros directamente.
-// Authors:           Ana Paola Cardona Valenzuela
+// Description:     Abstracción sobre timer_2026
+//                  Hace uso de los 4 timers de la tarjeta:
+//                  (HAL_TIMER_1 ... HAL_TIMER_4) que mapean internamente a los
+//                  Timer Groups y Timer Numbers del ESP32:
+//                     HAL_TIMER_1 -> TIMER_GROUP_0, TIMER_0
+//                     HAL_TIMER_2 -> TIMER_GROUP_0, TIMER_1
+//                     HAL_TIMER_3 -> TIMER_GROUP_1, TIMER_0
+//                     HAL_TIMER_4 -> TIMER_GROUP_1, TIMER_1
+// Authors:         Ana Paola Cardona Valenzuela
 //                  Luis Adrian Anchondo Carreón
 //                  Emiliano Perez Dyck 
 // Created:         01/06/2026
@@ -34,6 +40,30 @@ typedef enum {
     HAL_TIMER_3 = 2,
     HAL_TIMER_4 = 3
 } hal_timer_id_t;
+
+// ===========================================================================
+//  Mapeo de Timers
+// ===========================================================================
+
+/**
+ * @brief Entrada de la tabla de mapeo 
+ */
+typedef struct {
+    timer_group_t group;
+    timer_num_t   num;
+} hal_timer_map_t;
+
+/**
+ * @brief Declaración de la tabla de mapeo. (Definida en hal_timer.c)
+ */
+extern const hal_timer_map_t hal_timer_map[4];
+
+// ===========================================================================
+//  Extrae group y num de la tabla a partir del hal_timer_id_t
+// ===========================================================================
+#define HAL_GROUP(id) (hal_timer_map[(id)].group)
+#define HAL_NUM(id)   (hal_timer_map[(id)].num)
+
 
 /**
  * @brief Inicializa uno de los 4 timers del sistema
