@@ -1,6 +1,6 @@
 // FileName:        gpio_2026.h                                                                                            
 // Dependencies:    None                                                                                              
-// Processor:       ESP32                                                                                             
+// Processor:       Tensilica Xtensa LX6 160 MHz                                                                                             
 // Board:           ESP-WROOM-32                                                                                  
 // Program version: 1.0                                                                                  
 // Company:         Instituto Tecnologico de Chihuahua                                                                                 
@@ -16,6 +16,7 @@
 #define GPIO_2026_H
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
 
@@ -33,13 +34,16 @@
 
 // GPIO INPUT CONTROL
 #define GPIO_IN            HWREG32(0x3FF4403C)  //Input status
+#define GPIO_PIN_REG_BASE  0x3FF44088 // Base para GPIO_PINn_REG (interrupciones)
 
 // Mascaras para configuración de pines de entrada
 // Mascara al registro GPIO_MUX_REGS[pin]
 
-#define FUN_IE   (1 << 9)   // Habilitar función de entrada
-#define PULL_WPU (1 << 8)   // Habilitar resistencia de pull-up
-#define PULL_WPD (1 << 7)   // Habilitar resistencia de pull-down
+#define FUN_IE              (1 << 9)    // Habilitar función de entrada
+#define PULL_WPU            (1 << 8)    // Habilitar resistencia de pull-up
+#define PULL_WPD            (1 << 7)    // Habilitar resistencia de pull-down
+#define MUX_MCU_SEL_GPIO    (0x2 << 12) // Seleccionar función GPIO (MCU_SEL = 2)
+#define MUX_MCU_SEL_MASK    (0x7 << 12) // Máscara para limpiar MCU_SEL
 
 // IOMUX REGISTERS GPIO0-39
 
@@ -70,12 +74,23 @@ typedef enum {
     GPIO_ACTIVE_HIGH
 } gpio_logic_t;
 
+// Tipo de interrupción del pin
+typedef enum {
+    INT_DESHABILITADA = 0, // Sin interrupción
+    INT_FLANCO_POS = 1, // Flanco de subida (LOW -> HIGH)
+    INT_FLANCO_NEG = 2, // Flanco de bajada (HIGH -> LOW)
+    INT_CUALQUIER_FLANCO = 3, // Cualquier cambio de estado
+    INT_NIVEL_BAJO = 4, // Nivel bajo
+    INT_NIVEL_ALTO = 5, // Nivel alto
+} gpio_int_type_t;
+
 // Estructura para configuración de pin GPIO
 typedef struct {
     uint8_t pin;
     bool is_output;
     gpio_logic_t logic;
     pull_mode_t pull_mode;
+    gpio_int_type_t int_type;
 } gpio_pin_t;
 
 // Tabla de pines GPIO configurados
@@ -99,11 +114,12 @@ extern gpio_pin_t gpio_table[];
 
 * @return gpio_pin_t *gpio: Puntero a la estructura gpio_pin_t que contiene la configuración del pin GPIO
 */
-gpio_pin_t gpio_init2026(
+gpio_pin_t *gpio_init2026(
     uint8_t pin,
     bool is_output,
     gpio_logic_t logic,
-    pull_mode_t pull_mode
+    pull_mode_t pull_mode,
+    gpio_int_type_t int_type
 );
 
 
