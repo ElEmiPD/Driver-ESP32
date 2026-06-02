@@ -2,69 +2,92 @@
 // Dependencies:    "timer_2026.h"                                                                                   
 // Processor:       ESP32                                                                                            
 // Board:           ESP-WROOM-32                                                                                     
-// Program version: 1.0                                                                                              
+// Program version: 2.0                                                                                             
 // Company:         Instituto Tecnologico de Chihuahua                                                               
 // Description:     Implementación de la lógica de bajo nivel para la        
 //                  inicialización, lectura dividida de 64 bits y generación 
-//                  de retardos con el Timer Group 0 (TIMG0).                
-// Autor:           Ana Paola Cardona Valenzuela
+//                  de retardos con los 4 timers del ESP32:
+//                     - Timer Group 0 (TIMG0): Timer 0 y Timer 1
+//                     - Timer Group 1 (TIMG1): Timer 0 y Timer 1 
+// Authors:           Ana Paola Cardona Valenzuela
 //                  Luis Adrian Anchondo Carreón
 //                  Emiliano Perez Dyck 
-// Updated:         31/05/2026
+// Changes v2.0: Las funciones ahora reciben (timer_group_t group, timer_num_t num)
+//                  como parámetros. Los accesos a hardware se realizan a través de
+//                  las macros parametrizadas definidas en el header, eliminando la
+//                  necesidad de duplicar código por cada timer
+// Created:         31/05/2026
+// Updated:         02/06/2026
+
 #include "timer_2026.h"
 
-
-void timer_init(void)
+// ===========================================================================
+//  timer_init
+// ===========================================================================
+void timer_init(timer_group_t group, timer_num_t num)
 {
-    /*Deshabilitar el timer antes de configurarlo para evitar comportamientos erráticos
-      Usamos un AND bit a bit con el complemento de la máscara para apagar solo ese bit*/
-    TIMG0_T0CONFIG_REG &= ~TIMER_EN_BIT;
+    // Deshabilitar el timer antes de configurarlo para evitar comportamientos
+    // erráticos
+    TIMG_CONFIG_REG(group, num) &= ~TIMER_EN_BIT;
 
-    // Configurar el prescaler y establecer el modo de conteo ascendente
-    // Desplazamos el valor 80 a su posición correcta en el registro de configuración
-    TIMG0_T0CONFIG_REG = (TIMER_PRESCALER << TIMER_DIVIDER_SHIFT) 
-                       | TIMER_INCREASE_BIT;
+    // Configurar el prescaler y el modo de conteo ascendente
+    // Escribimos todo el registro de una vez para evitar estados intermedios
+    // inconsistentes (el timer ya está deshabilitado en este punto)
+    TIMG_CONFIG_REG(group, num) = ((uint32_t)TIMER_PRESCALER << TIMER_DIVIDER_SHIFT)
+                                 | TIMER_INCREASE_BIT;
 
     // Preparar el reinicio del contador a 0
-    TIMG0_T0LOADLO_REG = 0; // Se escribe 0 en la parte baja (32 bits)
-    TIMG0_T0LOADHI_REG = 0; // Se escribe 0 en la parte alta (32 bits)
-    
-    // Aplicar un valor para disparar la carga
-    // Esto obliga al hardware a tomar los ceros de los registros LOAD y aplicarlos al contador real
-    TIMG0_T0LOAD_REG   = 1;
+    // El registro de recarga es de 32 bits 
+    TIMG_LOADLO_REG(group, num) = 0;   // Valor de recarga 32 bits
 
-    // Habilitar el timer nuevamente para que comience a contar
-    TIMG0_T0CONFIG_REG |= TIMER_EN_BIT;
+    // Disparar la carga, el hardware toma los valores de LOADLO/LOADHI
+    // y los aplica al contador interno. Escribir cualquier valor distinto de 0
+    // es suficiente para activar el disparo
+    TIMG_LOAD_REG(group, num) = 1;
+
+    // Habilitar el timer para que comience a contar desde 0
+    TIMG_CONFIG_REG(group, num) |= TIMER_EN_BIT;
 }
 
-uint64_t timer_get_us(void)
+// ===========================================================================
+//  timer_get_us
+// ===========================================================================
+uint64_t timer_get_us(timer_group_t group, timer_num_t num)
 {
-    // Enviar el trigger de actualización
-    // Esto obliga al hardware a congelar y copiar el valor actual del contador 
-    // hacia los registros de lectura, evitando que cambien mientras los leemos
-    TIMG0_T0UPDATE_REG = 1;
-    
-    // Leer las dos mitades de 32 bits de los registros
-    uint64_t lo = TIMG0_T0LO_REG;
-    uint64_t hi = TIMG0_T0HI_REG;
-    
-    // Combinar ambas mitades en una sola variable de 64 bits.
-    // Se desplaza la parte alta 32 bits a la izquierda y se hace un OR con la parte baja
+    // Enviar cualquier valor para actualizar
+    // Esto obliga al hardware a congelar y copiar el valor actual del contador
+    // hacia los registros de lectura (LO y HI), garantizando una lectura
+    // atómica de los 64 bits aunque se realice en dos lecturas de 32 bits
+    TIMG_UPDATE_REG(group, num) = 1;
+
+    // Leer las dos mitades de 32 bits
+    // Se castea a uint64_t antes de desplazar para evitar overflow
+    uint64_t lo = (uint64_t)TIMG_LO_REG(group, num);
+    uint64_t hi = (uint64_t)TIMG_HI_REG(group, num);
+
+    // Combinar ambas mitades en una sola variable de 64 bits
+    // La parte alta se desplaza 32 bits a la izquierda y se une con OR a la baja
     return (hi << 32) | lo;
 }
 
-void timer_delay_us(uint32_t us)
+// ===========================================================================
+//  timer_delay_us
+// ===========================================================================
+void timer_delay_us(timer_group_t group, timer_num_t num, uint32_t us)
 {
-    // Guardamos la marca de tiempo de inicio.
-    uint64_t inicio = timer_get_us();
-    
-    // El procesador se queda atascado en este while
-    // evaluando constantemente hasta que la diferencia de tiempo alcance el valor solicitado
-    while ((timer_get_us() - inicio) < us);
+    // Guardar la marca de tiempo de inicio
+    uint64_t inicio = timer_get_us(group, num);
+
+    // El procesador se queda en este bucle evaluando constantemente
+    // hasta que la diferencia de tiempo alcance el valor solicitado
+    while ((timer_get_us(group, num) - inicio) < (uint64_t)us);
 }
 
-void timer_delay_ms(uint32_t ms)
+// ===========================================================================
+//  timer_delay_ms
+// ===========================================================================
+void timer_delay_ms(timer_group_t group, timer_num_t num, uint32_t ms)
 {
-    // Reutilizamos la función de microsegundos, simplemente multiplicando por 1000
-    timer_delay_us(ms * 1000);
+    // Reutilizamos timer_delay_us() multiplicando por 1000
+    timer_delay_us(group, num, ms * 1000);
 }
