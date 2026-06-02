@@ -17,7 +17,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifndef HWREG32
 #define HWREG32(x) (*((volatile uint32_t *)(x)))
+#endif
 
 // Registros TIMG0 del ESP32
 #define TIMG0_BASE 0x3FF5F000 // Direccióon base del registro del timer0
