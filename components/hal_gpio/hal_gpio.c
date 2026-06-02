@@ -41,6 +41,7 @@ void hal_led_toggle(hal_led_t *led)
 
 void hal_led_blink(hal_led_t *led, uint32_t ms)
 {
+    hal_timer_init();
     hal_led_toggle(led);
     hal_timer_delay_ms(ms);
     hal_led_toggle(led);
