@@ -1,6 +1,6 @@
 // FileName:        gpio_2026.c                                                                                            
 // Dependencies:    None                                                                                              
-// Processor:       ESP32                                                                                             
+// Processor:       Tensilica Xtensa LX6 160 MHz                                                                                             
 // Board:           ESP-WROOM-32                                                                                  
 // Program version: 1.0                                                                                  
 // Company:         Instituto Tecnologico de Chihuahua                                                                                 
@@ -34,23 +34,43 @@ gpio_pin_t gpio_table[40];
 
 // Construcción de estructura gpio_pin_t y configuración hardware
 
-gpio_pin_t gpio_init2026(uint8_t pin, bool is_output, gpio_logic_t logic, pull_mode_t pull_mode)
+gpio_pin_t* gpio_init2026(uint8_t pin, bool is_output, gpio_logic_t logic, pull_mode_t pull_mode, gpio_int_type_t int_type)
 {
-    gpio_pin_t gpio = {
+
+    // Verificar rango
+    if(pin > 39){
+        puts("Error: Pin GPIO fuera de rango (0-39)");
+        return NULL;
+    }
+
+    // Verificar GPIO inexistentes
+    if(GPIO_MUX_REGS[pin] == 0){
+        puts("Error: GPIO no existe");
+        return NULL;
+    }
+
+    // GPIO34-39 son solo entrada
+    if((is_output || pull_mode != GPIO_FLOATING) && pin >= 34){
+        puts("Error: GPIO34-39 son solo entrada y no tienen resistencias de pull-up/pull-down");
+        return NULL;
+    }
+
+    gpio_pin_t *gpio = &gpio_table[pin];
+    
+    *gpio = (gpio_pin_t){
         .pin = pin,
         .is_output = is_output,
         .logic = logic,
-        .pull_mode = pull_mode
+        .pull_mode = pull_mode,
+        .int_type = int_type
     };
-
-    gpio_table[pin] = gpio;
 
     // Configuración hardware
 
-    if(gpio.is_output)
-        gpio_config_out(&gpio);
+    if(gpio->is_output)
+        gpio_config_out(gpio);
     else
-        gpio_config_in(&gpio);
+        gpio_config_in(gpio);
 
     return gpio;
 }
@@ -87,6 +107,12 @@ void gpio_config_in(gpio_pin_t *gpio)
             HWREG32(reg) &= ~PULL_WPD;
             break;
     }
+
+    // Configurar tipo de interrupción en GPIO_PINn_REG
+    // INT_TYPE ocupa bits [9:7] del registro GPIO_PINn
+    uint32_t pin_reg_addr = GPIO_PIN_REG_BASE + (gpio->pin * 4);
+    HWREG32(pin_reg_addr) &= ~(0x7 << 7); // Limpiar campo
+    HWREG32(pin_reg_addr) |= ((gpio->int_type & 0x7) << 7); // Asignar tipo
 }
 
 // Configuración de pin como salida GPIO
@@ -101,8 +127,8 @@ void gpio_config_out(gpio_pin_t *gpio)
     HWREG32(reg) &= ~FUN_IE;
 
     // MCU_SEL = GPIO
-    HWREG32(reg) &= ~(0x7 << 12); // MCU_SEL bits [14:12] = 000 para GPIO
-    HWREG32(reg) |=  (0x2 << 12); // 
+    HWREG32(reg) &= ~MUX_MCU_SEL_MASK;
+    HWREG32(reg) |=  MUX_MCU_SEL_GPIO;
 
     // Habilitar salida
     GPIO_ENABLE |= (1 << gpio->pin);
