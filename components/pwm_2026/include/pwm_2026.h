@@ -244,7 +244,7 @@ typedef enum {
 #define LEDC_CH_TIMER_SEL_MASK (0x3 << LEDC_CH_TIMER_SEL_SHIFT)
 
 #define LEDC_CH_SIG_OUT_EN_BIT (1UL << 2) // Habilita la salida (Bit 2)
-#define LEDC_CH_IDLE_LV_BIT    (1UL << 3) // Nivel de seguridad en idle (Bit 3)
+#define LEDC_CH_IDLE_LV_BIT  (1UL << 3) // Nivel de seguridad en idle (Bit 3)
 
 // ===========================================================================
 //  Bits del registro LEDC_HSCHx_CONF1 / LEDC_LSCHx_CONF1
