@@ -1,5 +1,5 @@
 // FileName:        pwm_2026.h
-// Dependencies:    None
+// Dependencies:    gpio_2026.h
 // Processor:       ESP32 (Tensilica Xtensa LX6)
 // Board:           ESP-WROOM-32
 // Program version: 1.0
@@ -33,12 +33,13 @@
 //                  Luis Adrian Anchondo Carreón
 //                  Emiliano Perez Dyck
 // Created:         02/06/2026
-// Updated:         02/06/2026
+// Updated:         03/06/2026
 
 #ifndef PWM_2026_H
 #define PWM_2026_H
 
 #include <stdint.h>
+#include "gpio_2026.h"
 
 // ===========================================================================
 //  Macro de acceso directo a memoria 
@@ -195,8 +196,7 @@ typedef enum {
 
 // ===========================================================================
 //  Offsets de registros de CANAL dentro de cada grupo
-//  Fuente: ESP32 TRM v5.7, sección 28.4
-//
+
 //  Stride entre canales dentro del mismo grupo: 0x0014 bytes
 //
 //  Grupo High Speed (HS) — base de canales: LEDC_BASE + 0x0000
@@ -210,125 +210,102 @@ typedef enum {
 //    Mismos offsets internos, stride idéntico
 // ===========================================================================
 
-#define LEDC_CH_STRIDE      0x0014UL  // Separación entre canales consecutivos
+#define LEDC_CH_STRIDE  0x0014  // Separación entre canales consecutivos
 
 // Bases de la sección de canales según grupo
-#define LEDC_HS_CH_BASE     0x0000UL  // Inicio canales HS
-#define LEDC_LS_CH_BASE     0x00A0UL  // Inicio canales LS
+#define LEDC_HS_CH_BASE 0x0000  // Inicio canales HS
+#define LEDC_LS_CH_BASE 0x00A0 // Inicio canales LS
 
 // Offsets internos de cada canal
-#define LEDC_CH_CONF0_OFF   0x0000UL  // Config 0: timer_sel, idle_lv, sig_out_en
-#define LEDC_CH_HPOINT_OFF  0x0004UL  // Punto de subida (flanco rise)
-#define LEDC_CH_DUTY_OFF    0x0008UL  // Duty cycle a aplicar
-#define LEDC_CH_CONF1_OFF   0x000CUL  // Config 1: duty_start, duty_inc, duty_num…
-#define LEDC_CH_DUTY_R_OFF  0x0010UL  // Duty cycle leído (valor actual aplicado)
+#define LEDC_CH_CONF0  0x0000  // Config 0: timer_sel, idle_lv, sig_out_en
+#define LEDC_CH_HPOINT  0x0004  // Punto de subida (flanco rise)
+#define LEDC_CH_DUTY   0x0008  // Duty cycle a aplicar
+#define LEDC_CH_CONF1   0x000C  // Config 1: duty_start, duty_inc, duty_num…
+#define LEDC_CH_DUTY_R  0x0010 // Duty cycle leído (valor actual aplicado)
 
 /**
  * @brief Obtiene la dirección base del bloque de registros de un canal
  */
-#define LEDC_CH_BASE(mode, ch) \
-    (LEDC_BASE \
-     + ((mode) == PWM_HIGH_SPEED ? LEDC_HS_CH_BASE : LEDC_LS_CH_BASE) \
-     + (LEDC_CH_STRIDE * (uint32_t)(ch)))
+#define LEDC_CH_BASE(mode, ch) (LEDC_BASE + ((mode) == PWM_HIGH_SPEED ? LEDC_HS_CH_BASE : LEDC_LS_CH_BASE) + (LEDC_CH_STRIDE * (uint32_t)(ch)))
 
-#define LEDC_CH_CONF0_REG(mode, ch)  HWREG32(LEDC_CH_BASE(mode, ch) + LEDC_CH_CONF0_OFF)
-#define LEDC_CH_HPOINT_REG(mode, ch) HWREG32(LEDC_CH_BASE(mode, ch) + LEDC_CH_HPOINT_OFF)
-#define LEDC_CH_DUTY_REG(mode, ch)   HWREG32(LEDC_CH_BASE(mode, ch) + LEDC_CH_DUTY_OFF)
-#define LEDC_CH_CONF1_REG(mode, ch)  HWREG32(LEDC_CH_BASE(mode, ch) + LEDC_CH_CONF1_OFF)
-#define LEDC_CH_DUTY_R_REG(mode, ch) HWREG32(LEDC_CH_BASE(mode, ch) + LEDC_CH_DUTY_R_OFF)
+#define LEDC_CH_CONF0_REG(mode, ch)  HWREG32(LEDC_CH_BASE(mode, ch) + LEDC_CH_CONF0)
+#define LEDC_CH_HPOINT_REG(mode, ch) HWREG32(LEDC_CH_BASE(mode, ch) + LEDC_CH_HPOINT)
+#define LEDC_CH_DUTY_REG(mode, ch)   HWREG32(LEDC_CH_BASE(mode, ch) + LEDC_CH_DUTY)
+#define LEDC_CH_CONF1_REG(mode, ch)  HWREG32(LEDC_CH_BASE(mode, ch) + LEDC_CH_CONF1)
+#define LEDC_CH_DUTY_R_REG(mode, ch) HWREG32(LEDC_CH_BASE(mode, ch) + LEDC_CH_DUTY_R)
 
 // ===========================================================================
 //  Bits del registro LEDC_HSCHx_CONF0 / LEDC_LSCHx_CONF0
-//  [3:2]  TIMER_SEL  → qué timer usa el canal (0–3)
-//  [2:2]  IDLE_LV    → nivel de salida cuando el canal está inactivo (0 o 1)
-//  [1:1]  SIG_OUT_EN → habilita la salida del canal
-//  [0:0]  (LS only)  OVF_NUM_RST_EN
+//  [1:0]  TIMER_SEL  -> Qué timer usa el canal (0–3)
+//  [2:2]  SIG_OUT_EN -> Habilita la salida del canal
+//  [3:3]  IDLE_LV    -> Nivel de salida cuando el canal está inactivo (0 o 1)
 // ===========================================================================
-#define LEDC_CH_TIMER_SEL_SHIFT  2            // Campo TIMER_SEL en bits [3:2]
-#define LEDC_CH_TIMER_SEL_MASK   (0x3UL << LEDC_CH_TIMER_SEL_SHIFT)
-#define LEDC_CH_IDLE_LV_BIT      (1UL << 3)  // Nivel en idle
-#define LEDC_CH_SIG_OUT_EN_BIT   (1UL << 2)  // Enable salida
+#define LEDC_CH_TIMER_SEL_SHIFT 0 // Campo TIMER_SEL en los bits [1:0]
+#define LEDC_CH_TIMER_SEL_MASK (0x3 << LEDC_CH_TIMER_SEL_SHIFT)
+
+#define LEDC_CH_SIG_OUT_EN_BIT (1UL << 2) // Habilita la salida (Bit 2)
+#define LEDC_CH_IDLE_LV_BIT    (1UL << 3) // Nivel de seguridad en idle (Bit 3)
 
 // ===========================================================================
 //  Bits del registro LEDC_HSCHx_CONF1 / LEDC_LSCHx_CONF1
-//  [31]  DUTY_START → escribe 1 para confirmar la actualización del duty
+//  [31]  DUTY_START -> escribe 1 para confirmar la actualización del duty
 //  (Low Speed requiere además escribir LEDC_LSTIMER_PARA_UP_BIT en CONF)
 // ===========================================================================
-#define LEDC_CH_DUTY_START_BIT   (1UL << 31)  // Activa la actualización del duty
+#define LEDC_CH_DUTY_START_BIT (1UL << 31) // Activa la actualización del duty
 
 // ===========================================================================
 //  Registro global de configuración del LEDC
-//  Fuente: ESP32 TRM v5.7, sección 28.4 — dirección 0x3FF59190
 //
-//  LEDC_CONF_REG controla la fuente de reloj del grupo Low Speed (LS).
-//  Los timers HS siempre usan APB_CLK (80 MHz) y no dependen de este registro.
+//  LEDC_CONF_REG controla la fuente de reloj del grupo Low Speed (LS)
+//  Los timers HS siempre usan APB_CLK (80 MHz) y no dependen de este registro
 //  Los timers LS pueden usar dos fuentes, seleccionadas con el bit [0]:
-//
 //    Bit [0]  LEDC_APB_CLK_SEL:
-//      0 → RTC8M_CLK (~8 MHz) — funciona en modo low-power / light sleep
-//      1 → APB_CLK   (80 MHz) — máxima resolución y frecuencia, uso normal
+//      0 -> RTC8M_CLK (~8 MHz) — funciona en modo low-power / light sleep
+//      1 -> APB_CLK   (80 MHz) — máxima resolución y frecuencia, uso normal
 //
 //  Para uso normal (sin low-power) se debe escribir 1 en este bit antes de
 //  inicializar cualquier timer LS. Si solo se usan timers HS, este registro
-//  no es estrictamente necesario, pero escribirlo garantiza un estado conocido.
+//  no es estrictamente necesario
 // ===========================================================================
-#define LEDC_CONF_REG           HWREG32(0x3FF59190UL)
-#define LEDC_APB_CLK_SEL_BIT    (1UL << 0)   // 1 = APB_CLK (80 MHz) para timers LS
+#define LEDC_CONF_REG HWREG32(0x3FF59190)
+#define LEDC_APB_CLK_SEL_BIT (1UL << 0) // 1 = APB_CLK (80 MHz) para timers LS
 
 // ===========================================================================
 //  Registro de habilitación del reloj del periférico LEDC
-//  Fuente: ESP32 TRM v5.7, sección 12 — DPort / Peripheral Clock Gating
+//  Register 5.17: DPORT_PERIP_CLK_EN_REG
 //
 //  DPORT_PERIP_CLK_EN_REG  = 0x3FF000C0
 //  DPORT_PERIP_RST_EN_REG  = 0x3FF000C4
 //  Bit 11 → LEDC_CLK_EN / LEDC_RST
 // ===========================================================================
-#define DPORT_PERIP_CLK_EN_REG  HWREG32(0x3FF000C0UL)
-#define DPORT_PERIP_RST_EN_REG  HWREG32(0x3FF000C4UL)
-#define LEDC_CLK_EN_BIT         (1UL << 11)
+#define DPORT_PERIP_CLK_EN_REG  HWREG32(0x3FF000C0)
+#define DPORT_PERIP_RST_EN_REG  HWREG32(0x3FF000C4)
+#define LEDC_CLK_EN_BIT (1UL << 11)
 
 // ===========================================================================
 //  Registro GPIO Matrix para ruteo de la señal LEDC hacia un pin físico
-//  Fuente: ESP32 TRM v5.7, sección 6 — IO MUX / GPIO Matrix
 //
 //  GPIO_FUNCx_OUT_SEL_CFG_REG — un registro por cada GPIO (0–39)
-//    Base:   0x3FF44530
+//    Base: 0x3FF44530
 //    Stride: 0x0004 bytes por GPIO
-//    Bits [8:0] → índice de la señal periférica que se ruteará al pin
+//    Bits [8:0] -> índice de la señal periférica que se ruteará al pin
 //
-//  Señales LEDC de salida (signal index en la GPIO Matrix):
+//  Señales LEDC de salida:
 //    HS Channel 0–7: índices 71–78
 //    LS Channel 0–7: índices 79–86
 // ===========================================================================
-#define GPIO_FUNC_OUT_SEL_BASE  0x3FF44530UL
-#define GPIO_FUNC_OUT_REG(gpio) HWREG32(GPIO_FUNC_OUT_SEL_BASE + (0x0004UL * (uint32_t)(gpio)))
+#define GPIO_FUNC_OUT_SEL_BASE  0x3FF44530 // Dirección base para GPIO 0
+#define GPIO_MATRIX_STRIDE  0x0004 // Paso entre cada registro de GPIO
+#define GPIO_FUNC_OUT_REG(gpio) HWREG32(GPIO_FUNC_OUT_SEL_BASE + (GPIO_MATRIX_STRIDE * (uint32_t)(gpio)))
 
-// Índices de señal en la GPIO Matrix para salidas LEDC (TRM tabla 6-2)
-#define LEDC_HS_SIG_BASE  71U   // HS_CH0 = 71, HS_CH1 = 72 … HS_CH7 = 78
-#define LEDC_LS_SIG_BASE  79U   // LS_CH0 = 79, LS_CH1 = 80 … LS_CH7 = 86
-
-// ===========================================================================
-//  Registro GPIO_ENABLE_REG — habilita el pin como salida
-//  GPIO 0–31:  GPIO_ENABLE_REG   = 0x3FF44020
-//  GPIO 32–39: GPIO_ENABLE1_REG  = 0x3FF44024
-// ===========================================================================
-#define GPIO_ENABLE_REG     HWREG32(0x3FF44020UL)
-#define GPIO_ENABLE1_REG    HWREG32(0x3FF44024UL)
-
-// ===========================================================================
-//  Registro IO MUX para cada pin — selecciona función GPIO (función 2)
-//  Fuente: ESP32 TRM v5.7, sección 6.10 — IO MUX Pin List
-//
-//  Cada pin tiene un registro propio; aquí solo se declara la macro de acceso.
-//  La lista completa de direcciones físicas se maneja dentro del .c mediante
-//  una tabla indexada por número de GPIO.
-// ===========================================================================
-#define IOMUX_PIN_FUNC_GPIO  2U  // Función 2 = GPIO Matrix (ruta al periférico)
+// Índices de señal en la GPIO Matrix para salidas LEDC (manual v4.6 tabla 17 sección 4.9)
+#define LEDC_HS_SIG_BASE  71   // HS_CH0 = 71, HS_CH1 = 72 ... HS_CH7 = 78
+#define LEDC_LS_SIG_BASE  79   // LS_CH0 = 79, LS_CH1 = 80 ... LS_CH7 = 86
 
 // ===========================================================================
 //  Constante de reloj fuente
 // ===========================================================================
-#define LEDC_APB_CLK_HZ  80000000UL  // APB_CLK = 80 MHz (fuente estándar LEDC)
+#define LEDC_APB_CLK_HZ  80000000  // APB_CLK = 80 MHz (fuente estándar LEDC)
 
 // ===========================================================================
 //  Prototipos de funciones
@@ -336,8 +313,8 @@ typedef enum {
 
 /**
  * @brief  Habilita el reloj del periférico LEDC y libera el reset de hardware
- *         Debe llamarse una única vez antes de cualquier otra función PWM.
- *         Sin este paso el periférico no responde.
+ *         Debe llamarse una única vez antes de cualquier otra función PWM
+ *         Sin este paso el periférico no responde
  *
  * @return void
  */
@@ -347,13 +324,13 @@ void pwm_ledc_clock_enable(void);
  * @brief  Configura un timer LEDC con la frecuencia y resolución indicadas
  *
  *         Calcula automáticamente el prescaler (CLOCK_DIV) a partir de:
- *           CLOCK_DIV = (APB_CLK / freq_hz) / 2^resolution  * 256
+ *         CLOCK_DIV = (APB_CLK / freq_hz) / 2^resolution  * 256
  *         Selecciona APB_CLK (80 MHz) como fuente, resetea el contador
- *         y lo pone en marcha.
+ *         y lo pone en marcha
  *
  * @param  mode        Grupo de velocidad: PWM_HIGH_SPEED o PWM_LOW_SPEED
- * @param  timer       Timer a configurar: PWM_TIMER_0 … PWM_TIMER_3
- * @param  resolution  Resolución del contador en bits: PWM_RES_1_BIT … PWM_RES_20_BIT
+ * @param  timer       Timer a configurar: PWM_TIMER_0 ... PWM_TIMER_3
+ * @param  resolution  Resolución del contador en bits: PWM_RES_1_BIT ... PWM_RES_20_BIT
  * @param  freq_hz     Frecuencia PWM deseada en Hz (ej. 1000 para 1 kHz)
  * @return void
  */
@@ -364,12 +341,12 @@ void pwm_timer_init(pwm_speed_mode_t mode, pwm_timer_t timer,
  * @brief  Asocia un canal a un timer y configura su ciclo de trabajo
  *
  *         Escribe CONF0 (timer_sel + sig_out_en), HPOINT y DUTY,
- *         luego activa la actualización con DUTY_START en CONF1.
+ *         luego activa la actualización con DUTY_START en CONF1
  *         El canal queda listo para generar la señal PWM; falta solo
- *         conectarlo a un GPIO con pwm_gpio_bind().
+ *         conectarlo a un GPIO con pwm_gpio_bind()
  *
  * @param  mode    Grupo de velocidad: PWM_HIGH_SPEED o PWM_LOW_SPEED
- * @param  channel Canal a configurar: PWM_CHANNEL_0 … PWM_CHANNEL_7
+ * @param  channel Canal a configurar: PWM_CHANNEL_0 ... PWM_CHANNEL_7
  * @param  timer   Timer al que se asocia el canal
  * @param  duty    Valor de duty cycle (0 = 0 %, 2^resolution - 1 = 100 %)
  * @return void
@@ -430,5 +407,6 @@ void pwm_timer_resume(pwm_speed_mode_t mode, pwm_timer_t timer);
  * @return uint32_t  Valor del contador en el momento de la lectura
  */
 uint32_t pwm_timer_get_value(pwm_speed_mode_t mode, pwm_timer_t timer);
+
 
 #endif
