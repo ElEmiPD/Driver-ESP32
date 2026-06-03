@@ -205,7 +205,7 @@ void pwm_set_duty(pwm_speed_mode_t mode, pwm_channel_t channel, uint32_t duty)
 void pwm_timer_pause(pwm_speed_mode_t mode, pwm_timer_t timer)
 {
     // El bit PAUSE congela el contador sin reiniciarlo. El nivel de salida
-    // del canal queda en el estado en que estaba cuando se pausó.
+    // del canal queda en el estado en que estaba cuando se pausó
     LEDC_TIMER_CONF_REG(mode, timer) |= LEDC_TIMER_PAUSE_BIT;
 }
 
