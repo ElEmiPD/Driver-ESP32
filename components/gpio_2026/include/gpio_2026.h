@@ -44,14 +44,14 @@
 #define GPIO_OUTPUT_N(pin) \
     gpio_init2026(pin, true, GPIO_ACTIVE_LOW, GPIO_PULLDOWN, INT_DESHABILITADA)
 
-/*
-// Lectura y escritura de pines GPIO
-#define READ_PIN(pin) \
-    gpio_read(gpio_pin_t *gpio)
 
-#define WRITE_PIN(pin, value) \
-    gpio_write(gpio_pin_t *gpio, bool value)
-*/
+// Lectura y escritura de pines GPIO
+#define READ_PIN(gpio) \
+    gpio_read((gpio))
+
+#define WRITE_PIN(gpio, value) \
+    gpio_write((gpio), (value))
+
 
 // GPIO REGISTERS
 
