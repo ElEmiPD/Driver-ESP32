@@ -2,15 +2,15 @@
 // Dependencies:    None                                                                                              
 // Processor:       Tensilica Xtensa LX6 160 MHz                                                                                             
 // Board:           ESP-WROOM-32                                                                                  
-// Program version: 2.0                                                                                  
+// Program version: 1.0                                                                                  
 // Company:         Instituto Tecnologico de Chihuahua                                                                                 
 // Description:     Declaración de funciones de configuración
 //                  control GPIO para ESP32. Construcción de estructura 
 //                  gpio_pin_t y configuración hardware.                               
 // Autor:           Ana Paola Cardona Valenzuela
-//                  Luis Adrian Anchondo Carreón
-//                  Emiliano Perez Dyck 
-// Updated:         03/06/2026
+//                  Emiliano Perez Dyck
+//                  Luis Adrian Anchondo Carreón 
+// Updated:         31/05/2026
 
 #ifndef GPIO_2026_H
 #define GPIO_2026_H
@@ -94,7 +94,7 @@
 
 // Interrupciones GPIO
 // Registro de habilitación de interrupciones GPIO
-#define GPIO_INT_ENA_REG (*(volatile uint32_t *)0x3FF44148)  // APP_CPU (CPU1)
+#define GPIO_INT_ENA_REG (*(volatile uint32_t *)0x3FF44144)  // APP_CPU (CPU1)
 // Si usas PRO_CPU (CPU0): 0x3FF44144
 
 // Direcciones base
@@ -122,7 +122,7 @@ extern const uint32_t GPIO_MUX_REGS[];
  * registros duplicados. No debe ser manipulado directamente fuera del
  * módulo gpio_2026.c.
  */
-static intr_handle_t gpio_isr_handle = NULL;
+//static intr_handle_t gpio_isr_handle = NULL;
 
 // Enumeracion para pines GPIO
 /*
@@ -232,7 +232,7 @@ gpio_pin_t *gpio_init2026(
     gpio_int_type_t int_type
 );
 
-
+ 
 /** 
 * @brief Configura un pin GPIO como entrada.
 *        Deshabilita la función de salida, habilita la función de entrada
