@@ -2,7 +2,7 @@
 // Dependencies:    None                                                                                              
 // Processor:       Tensilica Xtensa LX6 160 MHz                                                                                             
 // Board:           ESP-WROOM-32                                                                                  
-// Program version: 1.0                                                                                  
+// Program version: 2.0                                                                                  
 // Company:         Instituto Tecnologico de Chihuahua                                                                                 
 // Description:     Declaración de funciones de configuración
 //                  control GPIO para ESP32. Construcción de estructura 
@@ -10,7 +10,7 @@
 // Autor:           Ana Paola Cardona Valenzuela
 //                  Luis Adrian Anchondo Carreón
 //                  Emiliano Perez Dyck 
-// Updated:         31/05/2026
+// Updated:         03/06/2026
 
 #ifndef GPIO_2026_H
 #define GPIO_2026_H
