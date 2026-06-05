@@ -2,7 +2,7 @@
 // Dependencies:    None                                                                                              
 // Processor:       Tensilica Xtensa LX6 160 MHz                                                                                             
 // Board:           ESP-WROOM-32                                                                                  
-// Program version: 2.0                                                                                  
+// Program version: 3.0                                                                                  
 // Company:         Instituto Tecnologico de Chihuahua                                                                                 
 // Description:     Definición de funciones de configuración
 //                  control GPIO para ESP32. Construcción de estructura 
@@ -10,10 +10,13 @@
 // Autor:           Ana Paola Cardona Valenzuela
 //                  Emiliano Perez Dyck
 //                  Luis Adrian Anchondo Carreón 
-// Updated:         03/06/2026
+// Updated:         05/06/2026
 
 #include "gpio_2026.h"
+
+// Handle global para la interrupción GPIO, compartida por todos los pines configurados
 static intr_handle_t gpio_isr_handle = NULL;
+
 // IOMUX REGISTERS (GPIO0-39)
 // Tabla de direcciones de los registros de configuración de pines
 const uint32_t GPIO_MUX_REGS[] = {
@@ -90,6 +93,10 @@ void gpio_config_in(gpio_pin_t *gpio)
     // Deshabilitar salida
     GPIO_ENABLE &= ~(1 << gpio->pin);
 
+    // MCU_SEL = GPIO
+    HWREG32(reg) &= ~MUX_MCU_SEL_MASK;
+    HWREG32(reg) |=  MUX_MCU_SEL_GPIO;
+
     // INPUT ENABLE
     HWREG32(reg) |= FUN_IE; 
     
@@ -115,15 +122,18 @@ void gpio_config_in(gpio_pin_t *gpio)
     // Configurar tipo de interrupción en GPIO_PINn_REG
     // INT_TYPE ocupa bits [9:7] del registro GPIO_PINn
     uint32_t pin_reg_addr = GPIO_PIN_REG_BASE + (gpio->pin * 4);
-    HWREG32(pin_reg_addr) &= ~(0x7 << 7); // Limpiar campo
-    HWREG32(pin_reg_addr) |= ((gpio->int_type & 0x7) << 7); // Asignar tipo
+    HWREG32(pin_reg_addr) &= ~(0x7 << 7);
+    HWREG32(pin_reg_addr) |= ((gpio->int_type & 0x7) << 7);
 
     if(gpio->int_type != INT_DESHABILITADA) {
-        // Si se configuró un tipo de interrupción, habilitarla con callback NULL
-        // para que el usuario la configure explícitamente después.
-        gpio_isr_service_init(); // Asegurar que el servicio de ISR esté inicializado
+        // Bits 13 y 15 — PRO_CPU y APP_CPU
+        HWREG32(pin_reg_addr) |= (1u << 13) | (1u << 15);
+    } else {
+        HWREG32(pin_reg_addr) &= ~((1u << 13) | (1u << 15));
     }
 
+    // Siempre limpiar en config, habilitar solo en IT_ATTACH
+    HWREG32(pin_reg_addr) &= ~(0x1F << 13);
 }
 
 // Configuración de pin como salida GPIO
@@ -178,61 +188,73 @@ void gpio_write(gpio_pin_t *gpio, bool value)
 // ------------------------------ Interrupciones --------------------------------
 
 /**
- * @brief ISR compartida del periférico GPIO. Dispatcher de callbacks.
+ * @brief Manejador global de interrupciones GPIO.
  *
- * Manejador de interrupción invocado por el hardware cada vez que cualquier
- * pin GPIO con interrupción habilitada genera un evento. Dado que el ESP32
- * utiliza un único vector para todas las interrupciones GPIO, esta función
- * determina en tiempo de ejecución qué pines dispararon el evento,
- * limpia sus banderas y ejecuta el callback registrado en cada uno.
+ * Función de servicio de interrupción (ISR) encargada de atender todas las
+ * las interrupciones generadas por los pines GPIO configurados mediante
+ * gpio_init2026(). Debido a que el periférico GPIO comparte un único vector
+ * de interrupción, esta rutina actúa como un dispatcher que identifica los
+ * pines que generaron el evento y ejecuta el callback asociado a cada uno.
  *
- * Secuencia de ejecución:
- *      1. Lee GPIO_STATUS_REG  (pines 0-31)  y GPIO_STATUS1_REG (pines 32-39).
- *      2. Limpia las banderas en GPIO_STATUS_W1TC_REG / GPIO_STATUS1_W1TC_REG
- *         antes de procesar, para no perder flancos que ocurran durante
- *         la ejecución del dispatcher.
- *      3. Recorre el bitmask e invoca gpio->callback(gpio->cb_arg) por cada
- *         pin activo que tenga un callback registrado.
+ * Funcionamiento:
+ *      1. Lee los registros de estado de interrupción GPIO.
+ *      2. Identifica los pines que generaron el evento.
+ *      3. Limpia las banderas de interrupción correspondientes.
+ *      4. Verifica si el pin tiene un callback registrado.
+ *      5. Ejecuta el callback y le pasa el argumento almacenado en cb_arg.
  *
- * @param[in]   arg     No utilizado. Requerido por la firma de esp_intr_alloc().
+ * Cada pin GPIO puede registrar de manera independiente una función callback
+ * mediante los campos callback y cb_arg de la estructura gpio_pin_t,
+ * permitiendo desacoplar la lógica de aplicación del controlador GPIO.
  *
- * @note    Declarada con IRAM_ATTR para garantizar su ejecución desde memoria
- *          interna, requerido cuando la caché de flash puede estar deshabilitada
- *          durante la atención de la interrupción.
- * @note    Los callbacks registrados por el usuario también deben declararse
- *          con IRAM_ATTR y respetar las restricciones de contexto ISR:
- *          sin printf(), malloc(), vTaskDelay() ni llamadas bloqueantes.
- * @note    Función de uso interno. No debe ser referenciada fuera de gpio_2026.c.
+ * Ejemplo:
+ *
+ *      void button_callback(void *arg)
+ *      {
+ *          // Código de usuario
+ *      }
+ *
+ *      gpio_table[0].callback = button_callback;
+ *      gpio_table[0].cb_arg   = NULL;
+ *
+ * Cuando se produzca una interrupción en GPIO0, esta ISR ejecutará:
+ *
+ *      button_callback(NULL);
+ *
+ * @param[in] arg
+ *      Argumento reservado por el sistema de interrupciones.
+ *      No es utilizado por el dispatcher.
+ *
+ * @note
+ *      Esta función es de uso interno del driver y no debe ser invocada
+ *      directamente por la aplicación.
+ *
+ * @note
+ *      Los callbacks ejecutados desde esta ISR deben ser breves y cumplir
+ *      las restricciones propias del contexto de interrupción. Se recomienda
+ *      evitar operaciones bloqueantes, asignación dinámica de memoria y
+ *      funciones de depuración como printf().
  */
-
 static void IRAM_ATTR gpio_dispatcher_isr(void *arg)
 {
-    // Leer qué pines dispararon
-    uint32_t status    = GPIO_STATUS_REG;
-    uint32_t status1   = GPIO_STATUS1_REG;
+    uint32_t status  = GPIO_STATUS_REG;
+    uint32_t status1 = GPIO_STATUS1_REG;
 
-    // Limpiar las banderas ANTES de procesar (evita perder flancos)
     GPIO_STATUS_W1TC_REG  = status;
     GPIO_STATUS1_W1TC_REG = status1;
 
-    // Recorrer pines 0-31
-    for (int i = 0; i < 32; i++) {
-        if ((status >> i) & 1) {
-            gpio_pin_t *g = &gpio_table[i];
-            if (g->callback) {
-                g->callback(g->cb_arg);
-            }
-        }
+    while (status) {
+        int i = __builtin_ctz(status);
+        if (gpio_table[i].callback)
+            gpio_table[i].callback(gpio_table[i].cb_arg);
+        status &= status - 1; // limpiar bit procesado
     }
 
-    // Recorrer pines 32-39
-    for (int i = 0; i < 8; i++) {
-        if ((status1 >> i) & 1) {
-            gpio_pin_t *g = &gpio_table[32 + i];
-            if (g->callback) {
-                g->callback(g->cb_arg);
-            }
-        }
+    while (status1) {
+        int i = __builtin_ctz(status1);
+        if (gpio_table[32 + i].callback)
+            gpio_table[32 + i].callback(gpio_table[32 + i].cb_arg);
+        status1 &= status1 - 1;
     }
 }
 
@@ -254,13 +276,16 @@ void gpio_enable_interrupt(gpio_pin_t *gpio, gpio_isr_callback_t cb, void *arg)
     gpio->callback = cb;
     gpio->cb_arg   = arg;
 
-    // Habilita la máscara de interrupción para este pin
-    GPIO_INT_ENA_REG |= (1 << gpio->pin);
+    uint32_t pin_reg_addr = GPIO_PIN_REG_BASE + (gpio->pin * 4);
+    HWREG32(pin_reg_addr) &= ~(0x1F << 13);          // limpiar campo INT_ENA
+    HWREG32(pin_reg_addr) |= (1u << 13) | (1u << 15); // PRO_CPU + APP_CPU
 }
 
 void gpio_disable_interrupt(gpio_pin_t *gpio)
 {
-    GPIO_INT_ENA_REG &= ~(1 << gpio->pin);
+    uint32_t pin_reg_addr = GPIO_PIN_REG_BASE + (gpio->pin * 4);
+    HWREG32(pin_reg_addr) &= ~(0x1F << 13); // limpiar INT_ENA
+
     gpio->callback = NULL;
     gpio->cb_arg   = NULL;
 }
