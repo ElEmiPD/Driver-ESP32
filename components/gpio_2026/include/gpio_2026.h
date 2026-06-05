@@ -2,7 +2,7 @@
 // Dependencies:    None                                                                                              
 // Processor:       Tensilica Xtensa LX6 160 MHz                                                                                             
 // Board:           ESP-WROOM-32                                                                                  
-// Program version: 1.0                                                                                  
+// Program version: 2.0                                                                                  
 // Company:         Instituto Tecnologico de Chihuahua                                                                                 
 // Description:     Declaración de funciones de configuración
 //                  control GPIO para ESP32. Construcción de estructura 
@@ -10,7 +10,7 @@
 // Autor:           Ana Paola Cardona Valenzuela
 //                  Emiliano Perez Dyck
 //                  Luis Adrian Anchondo Carreón 
-// Updated:         31/05/2026
+// Updated:         05/06/2026
 
 #ifndef GPIO_2026_H
 #define GPIO_2026_H
@@ -98,10 +98,13 @@
 // Si usas PRO_CPU (CPU0): 0x3FF44144
 
 // Direcciones base
-#define GPIO_STATUS_ADDR      0x3FF4404C
-#define GPIO_STATUS_W1TC_ADDR 0x3FF44054
-#define GPIO_STATUS1_ADDR     0x3FF44050
-#define GPIO_STATUS1_W1TC_ADDR 0x3FF44058
+// Para GPIO0-31, los registros de estado están en un bloque común
+#define GPIO_STATUS_ADDR      0x3FF44044
+#define GPIO_STATUS_W1TC_ADDR 0x3FF4404C
+
+// Para GPIO34-39, los registros de estado están en un bloque separado
+#define GPIO_STATUS1_ADDR      0x3FF44048
+#define GPIO_STATUS1_W1TC_ADDR 0x3FF44050
 
 // Macros de acceso
 #define GPIO_STATUS_REG       (*(volatile uint32_t *)GPIO_STATUS_ADDR)

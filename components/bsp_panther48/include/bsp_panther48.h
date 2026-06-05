@@ -1,8 +1,8 @@
-void func(void);// FileName:        bsp_panther48.h
-// Dependencies:    board_pins.h, hal_gpio.h, hal_timer.h
+// FileName:        bsp_panther48.h
+// Dependencies:    board_pins.h, hal_gpio.h, hal_timer.h, hal_pwm.h
 // Processor:       Tensilica Xtensa LX6 160 MHz
-// Board:           ESP32 ITCH (Panther48)  REV 1.0 
-// Program version: 3.0
+// Board:           ESP32 ITCH (Panther48)  REV 1.0
+// Program version: 4.0
 // Company:         Instituto Tecnologico de Chihuahua
 // Description:     Board Support Package completo para ESP32 ITCH.
 //
@@ -14,8 +14,8 @@ void func(void);// FileName:        bsp_panther48.h
 //                       bsp_led_on(BSP_LED1);
 //                       bsp_sw1_pressed();
 //
-//                  2) API GENÉRICA: el usuario puede
-//                     operar cualquier pin de la tarjeta con:
+//                  2) API GENÉRICA: el usuario puede operar cualquier pin
+//                     con:
 //                       bsp_pin_mode(BSP_IO5, BSP_OUTPUT);
 //                       bsp_digital_write(BSP_IO5, BSP_HIGH);
 //                       bsp_digital_read(BSP_IO18);
@@ -23,7 +23,16 @@ void func(void);// FileName:        bsp_panther48.h
 //                     físicos; la lógica activa es siempre HIGH en este modo.
 //
 //                  La APP solo incluye este archivo.
-//                  No debe incluir hal_gpio.h, gpio_2026.h ni board_pins.h.
+//                  No debe incluir hal_pwm.h, hal_gpio.h, gpio_2026.h
+//                  ni board_pins.h directamente.
+//
+//                  Cambios v4.0 respecto a v3.0:
+//                    + bsp_pwm_rgb_set_percent(): variante de bsp_pwm_rgb_set()
+//                      que acepta brillo en porcentaje (0–100) para cada canal.
+//                      Delega a hal_pwm_set_duty_percent() internamente, con
+//                      corrección de lógica activa baja (invierte el porcentaje).
+//                    + bsp_pwm_rgb_set_ch_percent(): variante de
+//                      bsp_pwm_rgb_set_ch() con argumento en porcentaje.
 //
 // Autores:         Ana Paola Cardona Valenzuela
 //                  Emiliano Perez Dyck
@@ -44,8 +53,6 @@ void func(void);// FileName:        bsp_panther48.h
 // ===========================================================================
 //  ALIAS DE PINES estilo Arduino
 //  La APP usa BSP_IO2, BSP_IO5, etc.  nunca el número crudo.
-//  Estos alias son los mismos que los de board_pins.h pero con nombre
-//  uniforme para la API genérica.
 // ===========================================================================
 #define BSP_IO0     0
 #define BSP_IO1     1
@@ -72,8 +79,7 @@ void func(void);// FileName:        bsp_panther48.h
 #define BSP_IO36   36
 #define BSP_IO39   39
 
-// Alias semánticos para los pines de la placa (equivalentes a los anteriores)
-// Debido a que la placa fisicamente tiene puentes removibles, el usuario puede usar cualquiera de los dos estilos de alias
+// Alias semánticos para los componentes de la placa
 #define BSP_LED1    BOARD_LED1_PIN   //  2
 #define BSP_LED2    BOARD_LED2_PIN   //  4
 #define BSP_LED3    BOARD_LED3_PIN   // 16
@@ -94,11 +100,11 @@ void func(void);// FileName:        bsp_panther48.h
 //  Constantes de modo y nivel  (estilo Arduino)
 // ===========================================================================
 typedef enum {
-    BSP_INPUT           = 0,   // Entrada sin resistencia
-    BSP_INPUT_PULLUP    = 1,   // Entrada con pull-up
-    BSP_INPUT_PULLDOWN  = 2,   // Entrada con pull-down
-    BSP_OUTPUT          = 3,   // Salida activa-alta (HIGH enciende)
-    BSP_OUTPUT_INVERTED = 4,   // Salida activa-baja (LOW enciende)
+    BSP_INPUT           = 0,
+    BSP_INPUT_PULLUP    = 1,
+    BSP_INPUT_PULLDOWN  = 2,
+    BSP_OUTPUT          = 3,
+    BSP_OUTPUT_INVERTED = 4,
 } bsp_pin_mode_t;
 
 typedef enum {
@@ -125,20 +131,11 @@ typedef enum {
 /**
  * @brief  Inicializa TODOS los periféricos de la tarjeta ESP32 ITCH.
  *         Debe ser la primera llamada en app_main().
- *
- *         Configura internamente:
- *           - Timer del sistema (HAL_TIMER_1)
- *           - LEDs 1-5 como salidas activa-baja, apagados
- *           - LED RGB (R,G,B) como salidas activa-baja, apagados
- *           - SW1, SW2, BOOT como entradas con pull-up
  */
 void bsp_init(void);
 
 // ===========================================================================
 //  API GENÉRICA  (estilo Arduino)
-//  Opera sobre cualquier pin de la tarjeta usando BSP_IOx o BSP_LEDx, etc.
-//  La lógica activa en este modo es siempre ACTIVE_HIGH, excepto en
-//  BSP_OUTPUT_INVERTED que es ACTIVE_LOW.
 // ===========================================================================
 
 /**
@@ -147,50 +144,33 @@ void bsp_init(void);
  * @param  pin   Alias del pin: BSP_IO2, BSP_LED1, BSP_SW1, etc.
  * @param  mode  BSP_INPUT | BSP_INPUT_PULLUP | BSP_INPUT_PULLDOWN |
  *               BSP_OUTPUT | BSP_OUTPUT_INVERTED
- *
- * Ejemplo (igual que Arduino):
- *   bsp_pin_mode(BSP_IO5,  BSP_OUTPUT);
- *   bsp_pin_mode(BSP_IO18, BSP_INPUT_PULLUP);
  */
 void bsp_pin_mode(uint8_t pin, bsp_pin_mode_t mode);
 
 /**
  * @brief  Escribe un nivel lógico en un pin de salida.
  *
- * @param  pin    Alias del pin (debe haber sido configurado con BSP_OUTPUT)
+ * @param  pin    Alias del pin (configurado con BSP_OUTPUT)
  * @param  level  BSP_HIGH o BSP_LOW
- *
- * Ejemplo:
- *   bsp_digital_write(BSP_IO5, BSP_HIGH);   // enciende LED en IO5
- *   bsp_digital_write(BSP_LED3, BSP_LOW);   // apaga LED3 (IO16)
  */
 void bsp_digital_write(uint8_t pin, bsp_pin_level_t level);
 
 /**
  * @brief  Lee el nivel lógico de un pin de entrada.
  *
- * @param  pin  Alias del pin (debe haber sido configurado con BSP_INPUT*)
- * @return BSP_HIGH si el pin está en nivel alto, BSP_LOW si está en nivel bajo
- *
- * Ejemplo:
- *   if (bsp_digital_read(BSP_SW1) == BSP_LOW) { ... }  // botón presionado
+ * @param  pin  Alias del pin (configurado con BSP_INPUT*)
+ * @return BSP_HIGH / BSP_LOW
  */
 bsp_pin_level_t bsp_digital_read(uint8_t pin);
 
 /**
  * @brief  Registra una ISR en un pin de entrada ya configurado.
- *         El tipo de flanco (NEG para botones con pull-up) se pasa explícito
- *         para que la API genérica sea flexible.
  *
  * @param  pin       Alias del pin
  * @param  int_type  INT_FLANCO_POS | INT_FLANCO_NEG | INT_CUALQUIER_FLANCO |
  *                   INT_NIVEL_ALTO | INT_NIVEL_BAJO
- * @param  cb        Callback  DEBE declararse con IRAM_ATTR
+ * @param  cb        Callback (debe declararse con IRAM_ATTR)
  * @param  arg       Argumento para el callback (puede ser NULL)
- *
- * Ejemplo:
- *   void IRAM_ATTR mi_isr(void *arg) { ... }
- *   bsp_attach_interrupt(BSP_IO18, INT_FLANCO_NEG, mi_isr, NULL);
  */
 void bsp_attach_interrupt(uint8_t pin, gpio_int_type_t int_type,
                           gpio_isr_callback_t cb, void *arg);
@@ -203,21 +183,20 @@ void bsp_detach_interrupt(uint8_t pin);
 
 // ===========================================================================
 //  API SEMÁNTICA  LEDs individuales
-//  La APP no conoce pines ni lógica activa; solo habla de LEDs 1-5.
 // ===========================================================================
-void bsp_led_on(uint8_t led);          // led: 1…5  o BSP_LED1…BSP_LED5
+void bsp_led_on(uint8_t led);
 void bsp_led_off(uint8_t led);
 void bsp_led_toggle(uint8_t led);
-void bsp_led_blink(uint8_t led, uint32_t ms);  // ON ms -> OFF ms, bloqueante
+void bsp_led_blink(uint8_t led, uint32_t ms);
 void bsp_led_all_on(void);
 void bsp_led_all_off(void);
 
 // ===========================================================================
-//  API SEMÁNTICA  LED RGB
+//  API SEMÁNTICA  LED RGB — control digital (ON/OFF)
 // ===========================================================================
 
 /**
- * @brief  Establece color del RGB. Usar macros BSP_COLOR_*:
+ * @brief  Establece color del RGB con macros BSP_COLOR_*:
  *           bsp_rgb_set(BSP_COLOR_CYAN);
  */
 void bsp_rgb_set(bool r, bool g, bool b);
@@ -232,8 +211,6 @@ bool bsp_boot_pressed(void);
 
 // ===========================================================================
 //  API SEMÁNTICA  Botones (interrupción)
-//  El BSP encapsula el tipo de flanco (NEG con pull-up).
-//  La APP solo pasa el callback.
 // ===========================================================================
 void bsp_sw1_irq_attach(gpio_isr_callback_t cb, void *arg);
 void bsp_sw1_irq_detach(void);
@@ -241,7 +218,7 @@ void bsp_sw2_irq_attach(gpio_isr_callback_t cb, void *arg);
 void bsp_sw2_irq_detach(void);
 
 // ===========================================================================
-//  Retardos y tiempo (HAL_TIMER_1 reservado para el BSP)
+//  Retardos y tiempo
 // ===========================================================================
 void     bsp_delay_ms(uint32_t ms);
 void     bsp_delay_us(uint32_t us);
@@ -250,69 +227,102 @@ uint64_t bsp_get_us(void);
 
 // ===========================================================================
 //  Mapeo canal HAL ↔ color ↔ GPIO
-//  Cambia aquí si la placa cambia de revisión; la APP no se modifica.
+//  Cambiar aquí si la placa cambia de revisión; la APP no se modifica.
 // ===========================================================================
 #define BSP_PWM_CH_R   HAL_PWM_CH_1   // Canal HAL para Rojo   -> IO14
 #define BSP_PWM_CH_G   HAL_PWM_CH_2   // Canal HAL para Verde  -> IO13
 #define BSP_PWM_CH_B   HAL_PWM_CH_3   // Canal HAL para Azul   -> IO12
- 
+
 // ===========================================================================
 //  Rango de brillo visible para la APP (0–100 %)
 //  Internamente se convierte a duty 0–255 con corrección de lógica activa.
 // ===========================================================================
 #define BSP_PWM_BRILLO_MIN   0u
 #define BSP_PWM_BRILLO_MAX   100u
- 
+
 // ===========================================================================
-//  API
+//  API SEMÁNTICA  LED RGB — control PWM con duty en valor absoluto
 // ===========================================================================
- 
+
 /**
  * @brief  Inicializa el PWM para el LED RGB.
  *         Llama a hal_pwm_init() internamente (idempotente).
  *         Configura los tres canales R, G, B apagados.
- *         Debe llamarse una sola vez, típicamente en bsp_init() o al inicio
- *         de app_main() antes de cualquier otra función de este módulo.
- *
- * @return void
+ *         Debe llamarse una sola vez, típicamente en bsp_init().
  */
 void bsp_pwm_rgb_init(void);
- 
+
 /**
- * @brief  Establece el brillo individual de cada canal (0–100 %).
- *         El valor se convierte internamente al duty correcto considerando
- *         la lógica activa baja del LED RGB de la tarjeta.
+ * @brief  Establece el brillo de cada canal en valor absoluto (0–HAL_PWM_MAX_DUTY).
+ *         La APP usa este nivel para manipulación precisa canal a canal.
+ *         Corrección de lógica activa baja incluida internamente.
+ *
+ * @param  r  Duty canal Rojo  (0 = apagado, HAL_PWM_MAX_DUTY = máximo brillo)
+ * @param  g  Duty canal Verde
+ * @param  b  Duty canal Azul
+ *
+ * Ejemplo:
+ *   bsp_pwm_rgb_set(255, 0, 0);    // rojo puro al máximo
+ *   bsp_pwm_rgb_set(0,   0, 128);  // azul al ~50 %
+ */
+void bsp_pwm_rgb_set(uint8_t r, uint8_t g, uint8_t b);
+
+/**
+ * @brief  Apaga el LED RGB (equivalente a bsp_pwm_rgb_set(0, 0, 0)).
+ */
+void bsp_pwm_rgb_off(void);
+
+/**
+ * @brief  Establece el brillo de un solo canal en valor absoluto.
+ *         Útil para animar un canal sin tocar los otros.
+ *
+ * @param  ch      BSP_PWM_CH_R, BSP_PWM_CH_G o BSP_PWM_CH_B
+ * @param  brillo  Valor absoluto (0 … HAL_PWM_MAX_DUTY)
+ */
+void bsp_pwm_rgb_set_ch(hal_pwm_ch_t ch, uint8_t brillo);
+
+// ===========================================================================
+//  API SEMÁNTICA  LED RGB — control PWM con duty en porcentaje (NUEVO v4.0)
+// ===========================================================================
+
+/**
+ * @brief  Establece el brillo de cada canal en porcentaje (0–100 %).
+ *         Más legible que bsp_pwm_rgb_set() para la APP, y no requiere
+ *         conocer HAL_PWM_MAX_DUTY ni la resolución del timer.
+ *         Corrección de lógica activa baja incluida internamente.
  *
  * @param  r  Brillo canal Rojo  (0 = apagado, 100 = máximo)
  * @param  g  Brillo canal Verde
  * @param  b  Brillo canal Azul
  *
  * Ejemplo:
- *   bsp_pwm_rgb_set(100, 0, 0);    // rojo puro
- *   bsp_pwm_rgb_set(0,   0, 50);   // azul al 50 %
- *   bsp_pwm_rgb_set(0,   0, 0);    // apagado
+ *   bsp_pwm_rgb_set_percent(100, 0,  0);   // rojo puro
+ *   bsp_pwm_rgb_set_percent(0,   0, 50);   // azul al 50 %
+ *   bsp_pwm_rgb_set_percent(0,   0,  0);   // apagado
  */
-void bsp_pwm_rgb_set(uint8_t r, uint8_t g, uint8_t b);
- 
+void bsp_pwm_rgb_set_percent(uint8_t r, uint8_t g, uint8_t b);
+
 /**
- * @brief  Apaga el LED RGB (equivalente a bsp_pwm_rgb_set(0, 0, 0)).
- */
-void bsp_pwm_rgb_off(void);
- 
-/**
- * @brief  Establece el brillo de un solo canal por su identificador HAL.
- *         Útil cuando la APP quiere animar un canal sin tocar los otros.
+ * @brief  Establece el brillo de un solo canal en porcentaje (0–100 %).
+ *         Variante de bsp_pwm_rgb_set_ch() para la APP que prefiere %.
  *
  * @param  ch      BSP_PWM_CH_R, BSP_PWM_CH_G o BSP_PWM_CH_B
- * @param  brillo  0–100 %
+ * @param  brillo  Brillo en porcentaje (0–100)
+ *
+ * Ejemplo:
+ *   bsp_pwm_rgb_set_ch_percent(BSP_PWM_CH_B, 75);  // azul al 75 %
  */
-void bsp_pwm_rgb_set_ch(hal_pwm_ch_t ch, uint8_t brillo);
- 
+void bsp_pwm_rgb_set_ch_percent(hal_pwm_ch_t ch, uint8_t brillo);
+
+// ===========================================================================
+//  API SEMÁNTICA  LED RGB — control de timer
+// ===========================================================================
+
 /**
  * @brief  Pausa el timer PWM (todos los canales se congelan).
  */
 void bsp_pwm_rgb_pause(void);
- 
+
 /**
  * @brief  Reanuda el timer PWM previamente pausado.
  */
