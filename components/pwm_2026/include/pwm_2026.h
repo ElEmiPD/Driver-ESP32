@@ -2,7 +2,7 @@
 // Dependencies:    gpio_2026.h
 // Processor:       ESP32 (Tensilica Xtensa LX6)
 // Board:           ESP-WROOM-32
-// Program version: 1.0
+// Program version: 2.0
 // Company:         Instituto Tecnologico de Chihuahua
 // Description:     Declaración de macros, direcciones de memoria y
 //                  prototipos de funciones de bajo nivel para el periférico
@@ -30,10 +30,10 @@
 //                    Con APB_CLK = 80 MHz, DIV y RES configurables
 //
 // Authors:         Ana Paola Cardona Valenzuela
-//                  Luis Adrian Anchondo Carreón
 //                  Emiliano Perez Dyck
+//                  Luis Adrian Anchondo Carreón
 // Created:         02/06/2026
-// Updated:         03/06/2026
+// Updated:         05/06/2026
 
 #ifndef PWM_2026_H
 #define PWM_2026_H
@@ -106,7 +106,7 @@ typedef enum {
 // ===========================================================================
 //  Resolución del contador (bits)
 //  Determina la granularidad del duty cycle: 2^RES pasos posibles
-//  A mayor resolución → menor frecuencia máxima posible
+//  A mayor resolución -> menor frecuencia máxima posible
 // ===========================================================================
 
 /**
@@ -148,11 +148,11 @@ typedef enum {
 //  Offsets de registros de TIMER dentro de cada grupo
 //  Stride entre timers dentro del mismo grupo: 0x0008 bytes
 //
-//  Grupo High Speed (HS) — base de timers:  LEDC_BASE + 0x0140
+//  Grupo High Speed (HS)  base de timers:  LEDC_BASE + 0x0140
 //    HSTIMER0_CONF  = 0x0140   HSTIMER1_CONF  = 0x0148   (diff = 0x0008)
 //    HSTIMER0_VALUE = 0x0144   HSTIMER1_VALUE = 0x014C
 //
-//  Grupo Low Speed  (LS) — base de timers:  LEDC_BASE + 0x0160
+//  Grupo Low Speed  (LS)  base de timers:  LEDC_BASE + 0x0160
 //    LSTIMER0_CONF  = 0x0160   LSTIMER1_CONF  = 0x0168   (diff = 0x0008)
 //    LSTIMER0_VALUE = 0x0164   LSTIMER1_VALUE = 0x016C
 // ===========================================================================
@@ -178,35 +178,35 @@ typedef enum {
 
 // ===========================================================================
 //  Bits del registro  LEDC_HSTIMERx_CONF_REG
-//  [24:24]  TICK_SEL  -> fuente de reloj: 1 = APB_CLK (80 MHz), 0 = REF_TICK
-//  [23:23]  TIMER_RST -> 1 = resetea el contador
-//  [22:22]  PAUSE     -> 1 = pausa el contador sin resetear
-//  [21:5]   CLOCK_DIV -> prescaler en formato Q10.8 (10 bits de entero y 8 de decimal)
+//  [25:25]  TICK_SEL  -> fuente de reloj: 1 = APB_CLK (80 MHz), 0 = REF_TICK
+//  [24:24]  TIMER_RST -> 1 = resetea el contador
+//  [23:23]  PAUSE     -> 1 = pausa el contador sin resetear
+//  [22:5]   CLOCK_DIV -> prescaler en formato Q10.8 (10 bits de entero y 8 de decimal)
 //                         Valor efectivo = CLOCK_DIV / 256
-//                         Para 80 MHz sin dividir: CLOCK_DIV = 256
+//                         Para 80 MHz sin dividir: CLOCK_DIV = 256 
 //  [4:0]    DUTY_RES  -> resolución del contador en bits (1–20)
 // ===========================================================================
-#define LEDC_TIMER_TICK_SEL_BIT (1UL << 24)  // 1 = APB_CLK
-#define LEDC_TIMER_RST_BIT      (1UL << 23)  // Reset del contador
-#define LEDC_TIMER_PAUSE_BIT    (1UL << 22)  // Pausa sin reset
-#define LEDC_TIMER_CLKDIV_SHIFT 5 // Campo CLOCK_DIV empieza en bit 5
-#define LEDC_TIMER_CLKDIV_MASK (0x3FFFFUL << LEDC_TIMER_CLKDIV_SHIFT)
-#define LEDC_TIMER_DUTY_RES_SHIFT 0  // Campo DUTY_RES empieza en bit 0
-#define LEDC_TIMER_DUTY_RES_MASK 0x1FUL // Bits [4:0]
+#define LEDC_TIMER_TICK_SEL_BIT   (1UL << 25)  // 1 = APB_CLK
+#define LEDC_TIMER_RST_BIT        (1UL << 24)  // Reset del contador
+#define LEDC_TIMER_PAUSE_BIT      (1UL << 23)  // Pausa sin reset
+#define LEDC_TIMER_CLKDIV_SHIFT   5            // Campo CLOCK_DIV empieza en bit 5
+#define LEDC_TIMER_CLKDIV_MASK    (0x3FFFFUL << LEDC_TIMER_CLKDIV_SHIFT)
+#define LEDC_TIMER_DUTY_RES_SHIFT 0            // Campo DUTY_RES empieza en bit 0
+#define LEDC_TIMER_DUTY_RES_MASK  0x1FUL       // Bits [4:0]
 
 // ===========================================================================
 //  Offsets de registros de CANAL dentro de cada grupo
 
 //  Stride entre canales dentro del mismo grupo: 0x0014 bytes
 //
-//  Grupo High Speed (HS) — base de canales: LEDC_BASE + 0x0000
+//  Grupo High Speed (HS)  base de canales: LEDC_BASE + 0x0000
 //    HSCH0_CONF0 = 0x0000  HSCH1_CONF0 = 0x0014  (diff = 0x0014)
 //    HSCH0_HPOINT= 0x0004  HSCH1_HPOINT= 0x0018
 //    HSCH0_DUTY  = 0x0008  HSCH1_DUTY  = 0x001C
 //    HSCH0_CONF1 = 0x000C  HSCH1_CONF1 = 0x0020
 //    HSCH0_DUTY_R= 0x0010  HSCH1_DUTY_R= 0x0024
 //
-//  Grupo Low Speed (LS)  — base de canales: LEDC_BASE + 0x00A0
+//  Grupo Low Speed (LS)   base de canales: LEDC_BASE + 0x00A0
 //    Mismos offsets internos, stride idéntico
 // ===========================================================================
 
@@ -260,8 +260,8 @@ typedef enum {
 //  Los timers HS siempre usan APB_CLK (80 MHz) y no dependen de este registro
 //  Los timers LS pueden usar dos fuentes, seleccionadas con el bit [0]:
 //    Bit [0]  LEDC_APB_CLK_SEL:
-//      0 -> RTC8M_CLK (~8 MHz) — funciona en modo low-power / light sleep
-//      1 -> APB_CLK   (80 MHz) — máxima resolución y frecuencia, uso normal
+//      0 -> RTC8M_CLK (~8 MHz)  funciona en modo low-power / light sleep
+//      1 -> APB_CLK   (80 MHz)  máxima resolución y frecuencia, uso normal
 //
 //  Para uso normal (sin low-power) se debe escribir 1 en este bit antes de
 //  inicializar cualquier timer LS. Si solo se usan timers HS, este registro
@@ -276,7 +276,7 @@ typedef enum {
 //
 //  DPORT_PERIP_CLK_EN_REG  = 0x3FF000C0
 //  DPORT_PERIP_RST_EN_REG  = 0x3FF000C4
-//  Bit 11 → LEDC_CLK_EN / LEDC_RST
+//  Bit 11 -> LEDC_CLK_EN / LEDC_RST
 // ===========================================================================
 #define DPORT_PERIP_CLK_EN_REG  HWREG32(0x3FF000C0)
 #define DPORT_PERIP_RST_EN_REG  HWREG32(0x3FF000C4)
@@ -285,7 +285,7 @@ typedef enum {
 // ===========================================================================
 //  Registro GPIO Matrix para ruteo de la señal LEDC hacia un pin físico
 //
-//  GPIO_FUNCx_OUT_SEL_CFG_REG — un registro por cada GPIO (0–39)
+//  GPIO_FUNCx_OUT_SEL_CFG_REG  un registro por cada GPIO (0–39)
 //    Base: 0x3FF44530
 //    Stride: 0x0004 bytes por GPIO
 //    Bits [8:0] -> índice de la señal periférica que se ruteará al pin
