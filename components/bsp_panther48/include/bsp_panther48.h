@@ -1,4 +1,4 @@
-void func(void);// FileName:        bsp_panther48.h
+// FileName:        bsp_panther48.h
 // Dependencies:    board_pins.h, hal_gpio.h, hal_timer.h
 // Processor:       Tensilica Xtensa LX6 160 MHz
 // Board:           ESP32 ITCH (Panther48)  REV 1.0 
