@@ -8,12 +8,12 @@
 //                  control GPIO para ESP32. Construcción de estructura 
 //                  gpio_pin_t y configuración hardware.                                                                      
 // Autor:           Ana Paola Cardona Valenzuela
-//                  Luis Adrian Anchondo Carreón
-//                  Emiliano Perez Dyck 
+//                  Emiliano Perez Dyck
+//                  Luis Adrian Anchondo Carreón 
 // Updated:         03/06/2026
 
 #include "gpio_2026.h"
-
+static intr_handle_t gpio_isr_handle = NULL;
 // IOMUX REGISTERS (GPIO0-39)
 // Tabla de direcciones de los registros de configuración de pines
 const uint32_t GPIO_MUX_REGS[] = {
@@ -31,7 +31,7 @@ const uint32_t GPIO_MUX_REGS[] = {
 
 gpio_pin_t gpio_table[40];
 
-
+ 
 // Construcción de estructura gpio_pin_t y configuración hardware
 
 gpio_pin_t* gpio_init2026   (uint8_t pin, 
