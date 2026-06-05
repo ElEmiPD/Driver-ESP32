@@ -9,16 +9,16 @@
 //                  mismo estilo que el driver de timers del proyecto
 //
 //                  Secuencia de inicialización:
-//                    1. pwm_ledc_clock_enable() — habilita el periférico
-//                    2. pwm_timer_init(...)  — configura frecuencia + resolución
-//                    3. pwm_channel_init(...) — asocia canal a timer + duty
-//                    4. pwm_gpio_bind(...) — ruteado a pin físico
+//                    1. pwm_ledc_clock_enable()  habilita el periférico
+//                    2. pwm_timer_init(...)   configura frecuencia + resolución
+//                    3. pwm_channel_init(...)  asocia canal a timer + duty
+//                    4. pwm_gpio_bind(...)  ruteado a pin físico
 //
 // Authors:         Ana Paola Cardona Valenzuela
-//                  Luis Adrian Anchondo Carreón
 //                  Emiliano Perez Dyck
+//                  Luis Adrian Anchondo Carreón
 // Created:         02/06/2026
-// Updated:         03/06/2026
+// Updated:         05/06/2026
 
 #include "pwm_2026.h"
 
@@ -38,8 +38,8 @@ void pwm_ledc_clock_enable(void)
     // Paso 3: seleccionar APB_CLK (80 MHz) como fuente para los timers LS
     //
     // LEDC_CONF_REG bit [0] = LEDC_APB_CLK_SEL:
-    //   1 -> APB_CLK (80 MHz) — requerido para uso normal y máxima resolución
-    //   0 -> RTC8M_CLK (~8 MHz) — solo necesario para operar en light sleep
+    //   1 -> APB_CLK (80 MHz)  requerido para uso normal y máxima resolución
+    //   0 -> RTC8M_CLK (~8 MHz)  solo necesario para operar en light sleep
 
     LEDC_CONF_REG |= LEDC_APB_CLK_SEL_BIT;
 }
@@ -90,7 +90,7 @@ void pwm_timer_init(pwm_speed_mode_t mode, pwm_timer_t timer,
 void pwm_channel_init(pwm_speed_mode_t mode, pwm_channel_t channel,
                       pwm_timer_t timer, uint32_t duty)
 {
-    // -----------------------------------------------------------------------
+    // ----------------------------------------------------------------------- 
     // CONF0: asociar el canal al timer y habilitar la salida
     //
     // Bits [1:0] TIMER_SEL -> índice del timer (0–3)
@@ -100,7 +100,7 @@ void pwm_channel_init(pwm_speed_mode_t mode, pwm_channel_t channel,
     uint32_t conf0 = 0;
     conf0 |= ((uint32_t)timer << LEDC_CH_TIMER_SEL_SHIFT) & LEDC_CH_TIMER_SEL_MASK;
     conf0 |= LEDC_CH_SIG_OUT_EN_BIT;
-    // IDLE_LV = 0 (nivel bajo en idle) — valor por defecto tras la máscara
+    // IDLE_LV = 0 (nivel bajo en idle)  valor por defecto tras la máscara
 
     LEDC_CH_CONF0_REG(mode, channel) = conf0;
 
@@ -166,7 +166,7 @@ void pwm_gpio_bind(pwm_speed_mode_t mode, pwm_channel_t channel, uint8_t gpio)
     // -----------------------------------------------------------------------
     // Paso 3: rutear la señal LEDC al GPIO en la GPIO Matrix
     //
-    // Este paso es exclusivo del driver PWM — gpio_2026 no lo hace porque
+    // Este paso es exclusivo del driver PWM  gpio_2026 no lo hace porque
     // es específico del periférico LEDC. Se escribe el índice de señal en
     // GPIO_FUNCx_OUT_SEL_CFG_REG para que la GPIO Matrix conecte la salida
     // del canal LEDC al pin físico
@@ -223,6 +223,6 @@ void pwm_timer_resume(pwm_speed_mode_t mode, pwm_timer_t timer)
 uint32_t pwm_timer_get_value(pwm_speed_mode_t mode, pwm_timer_t timer)
 {
     // El registro VALUE refleja el valor actual del contador sin necesidad
-    // de disparar una captura — a diferencia del timer general (TIMG)
+    // de disparar una captura  a diferencia del timer general (TIMG)
     return LEDC_TIMER_VALUE_REG(mode, timer);
 }
