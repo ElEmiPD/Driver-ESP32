@@ -37,7 +37,6 @@
 // Updated:         04/06/2026
 
 #include "bsp_panther48.h"
-#include "wdt_2026.h"
 
 // ===========================================================================
 //  Tabla interna: pin físico de cada LED (índice 1-based)
@@ -95,9 +94,7 @@ static inline uint8_t invertir_pct(uint8_t brillo)
 // ===========================================================================
 void bsp_init(void)
 {
-    wdt_disable_all();
-
-    hal_timer_init(HAL_TIMER_1);
+    hal_timer_init(HAL_TIMER_1); wdt_disable_all();
 
     for (uint8_t i = 1; i <= BOARD_LED_COUNT; i++)
     {
