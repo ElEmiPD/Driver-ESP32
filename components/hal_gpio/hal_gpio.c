@@ -2,18 +2,25 @@
 // Dependencies:    hal_gpio.h, gpio_2026.h
 // Processor:       Tensilica Xtensa LX6 160 MHz
 // Board:           Independiente de placa (portable)
-// Program version: 3.0
+// Program version: 3.1
 // Company:         Instituto Tecnologico de Chihuahua
 // Description:     Implementación del HAL de GPIO.
 //                  Todo acceso al hardware pasa por gpio_2026.
 //                  Para portar a otro MCU, solo se reemplaza este .c;
 //                  hal_gpio.h y las capas superiores no cambian.
 //
+//                  Cambios v3.1 respecto a v3.0:
+//                    fix hal_gpio_irq_attach(): faltaba llamar
+//                    gpio_isr_service_init() antes de gpio_enable_interrupt().
+//                    Sin esa llamada, el dispatcher nunca se registraba en el
+//                    controlador de interrupciones del ESP32 y los flancos de
+//                    los botones no generaban ningún callback.
+//
 // Autores:         Ana Paola Cardona Valenzuela
 //                  Emiliano Perez Dyck
 //                  Luis Adrian Anchondo Carreón
 // Created:         04/06/2026
-// Updated:         04/06/2026
+// Updated:         07/06/2026
 
 #include "hal_gpio.h"
 
@@ -206,11 +213,23 @@ hal_gpio_err_t hal_gpio_irq_attach(uint8_t pin, gpio_int_type_t int_type, gpio_i
     p->callback = cb;
     p->cb_arg   = arg;
 
-    // Forzar al driver a escribir el 'int_type' en el registro físico del chip (GPIO_PINn_REG)
-    // Esto además llamará a gpio_isr_service_init() internamente.
+    // Registrar el dispatcher de interrupciones si aún no fue inicializado.
+    // Debe llamarse ANTES de gpio_enable_interrupt(); de lo contrario la
+    // máscara INT_ENA se activa pero no hay ningún handler registrado en el
+    // controlador de interrupciones del ESP32 que lo atienda.
+    // gpio_isr_service_init() es idempotente: llamadas adicionales no tienen
+    // efecto gracias al flag interno gpio_isr_handle != NULL.
+    gpio_isr_service_init();
+
+    // Escribir el tipo de interrupción en GPIO_PINn_REG [9:7] y configurar
+    // el resto del pin (MUX, pull, INPUT_ENABLE).
+    // NOTA: gpio_config_in() limpia INT_ENA al final (línea de reset del
+    // driver), por lo que debe llamarse ANTES de gpio_enable_interrupt(),
+    // no después. El orden aquí es correcto.
     gpio_config_in(p);
 
-    // Habilitar el callback y la máscara en el driver de bajo nivel
+    // Activar la máscara INT_ENA para PRO_CPU y APP_CPU, y registrar el
+    // callback en gpio_table[pin] para que el dispatcher lo invoque.
     gpio_enable_interrupt(p, cb, arg);
 
     return HAL_GPIO_OK;
@@ -256,4 +275,4 @@ hal_gpio_err_t hal_gpio_deinit(uint8_t pin)
         
     hal_gpio_table[pin] = NULL;
     return HAL_GPIO_OK;
-} 
+}
