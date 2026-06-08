@@ -2,7 +2,7 @@
 // Dependencies:    "timer_2026.h"                                                                                   
 // Processor:       ESP32                                                                                            
 // Board:           ESP-WROOM-32                                                                                     
-// Program version: 2.0                                                                                             
+// Program version: 3.0                                                                                             
 // Company:         Instituto Tecnologico de Chihuahua                                                               
 // Description:     Implementación de la lógica de bajo nivel para la        
 //                  inicialización, lectura dividida de 64 bits y generación 
@@ -12,14 +12,33 @@
 // Authors:           Ana Paola Cardona Valenzuela
 //                  Luis Adrian Anchondo Carreón
 //                  Emiliano Perez Dyck 
-// Changes v2.0: Las funciones ahora reciben (timer_group_t group, timer_num_t num)
-//                  como parámetros. Los accesos a hardware se realizan a través de
-//                  las macros parametrizadas definidas en el header, eliminando la
-//                  necesidad de duplicar código por cada timer
 // Created:         31/05/2026
-// Updated:         02/06/2026
+// Updated:         07/06/2026
 
 #include "timer_2026.h"
+
+// ===========================================================================
+//  Funciones de ayuda interna para WDT
+//  Parametrizados por dirección base para no duplicar código entre TIMG0/1
+// ===========================================================================
+
+static void mwdt_disable(uint32_t timg_base)
+{
+    // Desbloquear write-protection
+    MWDT_WPROTECT(timg_base) = WDT_WRITE_ENABLE_KEY;
+    // Limpiar bit EN (bit 31), deshabilita el WDT conservando el resto de bits
+    MWDT_CONFIG0(timg_base) &= ~MWDT_EN_BIT;
+    // Volver a bloquear
+    MWDT_WPROTECT(timg_base) = WDT_WRITE_DISABLE_KEY;
+}
+
+static void mwdt_feed(uint32_t timg_base)
+{
+    MWDT_WPROTECT(timg_base) = WDT_WRITE_ENABLE_KEY;
+    // Cualquier escritura en FEED reinicia el contador del WDT
+    MWDT_FEED(timg_base) = 1;
+    MWDT_WPROTECT(timg_base) = WDT_WRITE_DISABLE_KEY;
+}
 
 // ===========================================================================
 //  timer_init
@@ -72,16 +91,28 @@ uint64_t timer_get_us(timer_group_t group, timer_num_t num)
 
 // ===========================================================================
 //  timer_delay_us
+//
+//  Alimenta el MWDT del TIMG0 cada WDT_FEED_INTERVAL_US durante el
+//  busy-wait para que el watchdog no se dispare en retardos largos
+//  En retardos cortos (< WDT_FEED_INTERVAL_US) el feed nunca ocurre
 // ===========================================================================
 void timer_delay_us(timer_group_t group, timer_num_t num, uint32_t us)
 {
-    // Guardar la marca de tiempo de inicio
     uint64_t inicio = timer_get_us(group, num);
+    uint64_t next_feed_us = inicio + WDT_FEED_INTERVAL_US;
 
-    // El procesador se queda en este bucle evaluando constantemente
-    // hasta que la diferencia de tiempo alcance el valor solicitado
-    while ((timer_get_us(group, num) - inicio) < (uint64_t)us);
+    while ((timer_get_us(group, num) - inicio) < (uint64_t)us)
+    {
+        uint64_t ahora = timer_get_us(group, num);
+        if (ahora >= next_feed_us)
+        {
+            mwdt_feed(TIMG0_BASE); // TWDT
+            mwdt_feed(TIMG1_BASE); // IWDT
+            next_feed_us = ahora + WDT_FEED_INTERVAL_US;
+        }
+    }
 }
+
 
 // ===========================================================================
 //  timer_delay_ms
@@ -90,4 +121,41 @@ void timer_delay_ms(timer_group_t group, timer_num_t num, uint32_t ms)
 {
     // Reutilizamos timer_delay_us() multiplicando por 1000
     timer_delay_us(group, num, ms * 1000);
+}
+
+// ===========================================================================
+//  Funciones del watchdog timer
+// ===========================================================================
+void wdt_disable_timg0(void)
+{
+    mwdt_disable(TIMG0_BASE);
+}
+
+void wdt_disable_timg1(void)
+{
+    mwdt_disable(TIMG1_BASE);
+}
+
+void wdt_disable_rtc(void)
+{
+    RWDT_WPROTECT = WDT_WRITE_ENABLE_KEY;
+    RWDT_CONFIG0 &= ~RWDT_EN_BIT;
+    RWDT_WPROTECT = WDT_WRITE_DISABLE_KEY;
+}
+
+void wdt_disable_all(void)
+{
+    wdt_disable_timg0();
+    wdt_disable_timg1();
+    wdt_disable_rtc();
+}
+
+void wdt_feed_timg0(void)
+{
+    mwdt_feed(TIMG0_BASE);
+}
+
+bool wdt_is_enabled_timg0(void)
+{
+    return (MWDT_CONFIG0(TIMG0_BASE) & MWDT_EN_BIT) != 0u;
 }

@@ -8,12 +8,16 @@
 //                  prototipos de funciones a nivel hardware para el manejo  
 //                  de los 4 timers de la ESP32:
 //                     - Timer Group 0 (TIMG0): Timer 0 y Timer 1
-//                     - Timer Group 1 (TIMG1): Timer 0 y Timer 1               
+//                     - Timer Group 1 (TIMG1): Timer 0 y Timer 1  
+//                  Integra el manejo completo del Watchdog Timer (WDT):
+//                     - MWDT del TIMG0 (TWDT del ESP-IDF)
+//                     - MWDT del TIMG1 (IWDT del ESP-IDF)
+//                     - RWDT del RTC             
 // Authors:         Ana Paola Cardona Valenzuela
 //                  Luis Adrian Anchondo Carreón
 //                  Emiliano Perez Dyck 
 // Created:         31/05/2026
-// Updated:         02/06/2026
+// Updated:         07/06/2026
 
 #ifndef TIMER_2026_H
 #define TIMER_2026_H
@@ -117,6 +121,50 @@ HWREG32(TIMG_BASE(group) + (TIMER_STRIDE * (num)) + (offset))
 #define TIMER_PRESCALER 80
 
 // ===========================================================================
+//  Registros del MWDT dentro del Timer Group
+// Es un contador de hardware que corre de forma independiente al programa. 
+// Si nadie lo alimenta (resetea) antes de que su contador llegue a cero, 
+// resetea el microcontrolador automáticamente. Su propósito es detectar si 
+// el programa se quedó esperando
+// ===========================================================================
+#define MWDT_CONFIG0_OFFSET   0x0048  // Configuración y control
+#define MWDT_FEED_OFFSET      0x0060  // Registro de feed
+#define MWDT_WPROTECT_OFFSET  0x0064  // Write-protection key
+
+#define MWDT_CONFIG0(timg_base)  HWREG32((timg_base) + MWDT_CONFIG0_OFFSET)
+#define MWDT_FEED(timg_base)     HWREG32((timg_base) + MWDT_FEED_OFFSET)
+#define MWDT_WPROTECT(timg_base) HWREG32((timg_base) + MWDT_WPROTECT_OFFSET)
+
+#define MWDT_EN_BIT  (1u << 31) // Habilitación del watchdog principal
+
+// ===========================================================================
+//  Registros del RWDT (RTC Watchdog Timer)
+// Es el registro de configuración y control del RTC Watchdog Timer. Su función 
+// principal dentro del driver es simplemente apagarlo, usando el bit 31
+// ===========================================================================
+#define RTC_CNTL_BASE         0x3FF48000
+#define RWDT_CONFIG0_OFFSET   0x008C  // Configuración principal RWDT
+#define RWDT_FEED_OFFSET      0x009C  // Registro de feed
+#define RWDT_WPROTECT_OFFSET  0x00A0  // Write-protection key
+
+#define RWDT_CONFIG0   HWREG32(RTC_CNTL_BASE + RWDT_CONFIG0_OFFSET)
+#define RWDT_FEED      HWREG32(RTC_CNTL_BASE + RWDT_FEED_OFFSET)
+#define RWDT_WPROTECT  HWREG32(RTC_CNTL_BASE + RWDT_WPROTECT_OFFSET)
+
+#define RWDT_EN_BIT  (1u << 31) // Habilitación del watchdog RTC
+
+// ===========================================================================
+//  Llaves de protección de escritura
+// ===========================================================================
+#define WDT_WRITE_ENABLE_KEY   0x50D83AA1
+#define WDT_WRITE_DISABLE_KEY  0x00000000
+
+// ===========================================================================
+//  Intervalo de feed del WDT durante busy-waits
+// ===========================================================================
+#define WDT_FEED_INTERVAL_US  1000000
+
+// ===========================================================================
 //  Prototipos de funciones 
 // ===========================================================================
 
@@ -166,5 +214,47 @@ void timer_delay_us(timer_group_t group, timer_num_t num, uint32_t us);
  * @return void
  */
 void timer_delay_ms(timer_group_t group, timer_num_t num, uint32_t ms);
+
+
+// ===========================================================================
+//  Prototipos para el WDT
+// ===========================================================================
+
+/**
+ * @brief  Deshabilita el MWDT del TIMG0 (TWDT del ESP-IDF)
+ *         Usar solo si se requiere deshabilitar completamente el watchdog
+ *         En uso normal NO es necesario llamarla; timer_delay_us() ya
+ *         alimenta el WDT de forma automática
+ */
+void wdt_disable_timg0(void);
+
+/**
+ * @brief  Deshabilita el MWDT del TIMG1 (IWDT del ESP-IDF)
+ *         sin IWDT, un bucle en una ISR no será detectado
+ */
+void wdt_disable_timg1(void);
+
+/**
+ * @brief  Deshabilita el RTC Watchdog Timer
+ */
+void wdt_disable_rtc(void);
+
+/**
+ * @brief  Deshabilita los tres WDTs del sistema de una sola vez
+ *         Equivale a llamar wdt_disable_timg0() + timg1() + rtc()
+ */
+void wdt_disable_all(void);
+
+/**
+ * @brief  Alimenta el MWDT del TIMG0 sin deshabilitarlo
+ *         Llamada automáticamente por timer_delay_us(). Puede invocarse
+ *         manualmente en cualquier otro bucle bloqueante del sistema
+ */
+void wdt_feed_timg0(void);
+
+/**
+ * @brief  Retorna true si el MWDT del TIMG0 está habilitado
+ */
+bool wdt_is_enabled_timg0(void);
 
 #endif
