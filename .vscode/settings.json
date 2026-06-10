@@ -6,7 +6,7 @@
     "target/esp32.cfg"
   ],
   "idf.portWin": "detect",
-  "idf.currentSetup": "C:\\esp\\v6.0.1\\esp-idf",
+  "idf.currentSetup": "C:\\esp\\v6.0\\esp-idf",
   "clangd.path": "C:\\Espressif\\tools\\esp-clang\\16.0.1-fe4f10a809\\esp-clang\\bin\\clangd.exe",
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32"
