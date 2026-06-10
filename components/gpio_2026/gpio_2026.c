@@ -287,5 +287,4 @@ void gpio_disable_interrupt(gpio_pin_t *gpio)
     HWREG32(pin_reg_addr) &= ~(0x1F << 13); // limpiar INT_ENA
 
     gpio->callback = NULL;
-    gpio->cb_arg   = NULL;
 }
